@@ -72,21 +72,22 @@ fn add_product(person: &mut Person) -> Result<(), inquire::InquireError> {
 }
 
 fn print_list(list: &Vec<Person>) {
+    let mut total = 0.0f64;
     for person in list {
         println!("{}", person.name);
         for product in person.produce.iter() {
             println!(" - {} {:.2} PLN", product.name, product.price)
         }
-        println!(
-            "  Total: {:.2} PLN",
-            person
-                .produce
-                .iter()
-                .map(|e| e.price)
-                .reduce(|acc, e| acc + e)
-                .unwrap_or(0.0f64)
-        )
+        let person_total = person
+            .produce
+            .iter()
+            .map(|e| e.price)
+            .reduce(|acc, e| acc + e)
+            .unwrap_or(0.0f64);
+        println!("  Total: {:.2} PLN", person_total);
+        total += person_total;
     }
+    println!("Total: {:.2} PLN", total);
 }
 
 fn main() -> InquireResult<()> {
