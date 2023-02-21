@@ -34,28 +34,22 @@ impl Display for MenuOption {
         write!(f, "{:?}", self)
     }
 }
-fn add_product_to_person(person_list: &mut Vec<Person>) -> Result<(), inquire::InquireError> {
-    let person_name =
-        Select::new("", person_list.iter().map(|p| p.name.clone()).collect()).prompt()?;
+fn add_product_to_person(
+    person_list: &mut Vec<Person>,
+    person_name: String,
+    product: Product,
+) -> Result<(), inquire::InquireError> {
+    let person_option = person_list
+        .iter_mut()
+        .find(|p| p.name.eq(&person_name.clone()));
 
-    let mut person_option: Option<&mut Person>;
-    {
-        person_option = None;
-        for p in person_list.iter_mut() {
-            if p.name.eq(&person_name.clone()) {
-                person_option = Some(p);
-                break;
-            }
-        }
-    }
     Ok(match person_option {
-        Some(person) => add_product(person)?,
+        Some(person) => person.produce.push(product),
         None => println!("No person found with that name"),
     })
 }
 
-fn add_product(person: &mut Person) -> Result<(), inquire::InquireError> {
-    println!("Person found with name {}", person.name);
+fn get_product_data() -> Result<Product, inquire::InquireError> {
     let name = Text::new("Enter produce name: ").prompt()?;
     let price = CustomType::<f64>::new("How much did it cost?")
         .with_formatter(&|i| format!("{:.2} PLN", i))
@@ -67,8 +61,7 @@ fn add_product(person: &mut Person) -> Result<(), inquire::InquireError> {
             return Ok(Validation::Invalid("You must enter positive amount".into()));
         })
         .prompt()?;
-    person.produce.push(Product { name, price });
-    Ok(())
+    Ok(Product { name, price })
 }
 
 fn print_list(list: &Vec<Person>) {
@@ -110,15 +103,19 @@ fn main() -> InquireResult<()> {
                     println!("No person added to list, please add one to continue");
                     continue;
                 }
-                add_product_to_person(&mut person_list)?;
+                let person_name =
+                    Select::new("", person_list.iter().map(|p| p.name.clone()).collect())
+                        .prompt()?;
+
+                let product = get_product_data()?;
+                add_product_to_person(&mut person_list, person_name, product)?;
             }
-            MenuOption::PrintList => print_list(&person_list),
-            MenuOption::Exit => return Ok(()),
             MenuOption::AddPerson => {
                 let new_person_name = Text::new("Enter new person name").prompt()?;
-                let list = &person_list;
 
-                let exists = list.iter().find(|p| p.name.eq(&new_person_name.clone()));
+                let exists = person_list
+                    .iter()
+                    .find(|p| p.name.eq(&new_person_name.clone()));
 
                 match exists {
                     Some(person) => println!("Person with name: {} already exists", person.name),
@@ -128,6 +125,8 @@ fn main() -> InquireResult<()> {
                     }),
                 }
             }
+            MenuOption::PrintList => print_list(&person_list),
+            MenuOption::Exit => return Ok(()),
         }
     }
 }
