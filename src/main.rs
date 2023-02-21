@@ -1,11 +1,16 @@
 use std::{
     fmt::{Display, Formatter},
+    rc::Rc,
     vec,
 };
 
 use inquire::{error::InquireResult, validator::Validation, CustomType, Select, Text};
 
-struct Produce {
+struct Person {
+    name: String,
+    produce: Vec<Product>,
+}
+struct Product {
     name: String,
     price: f64,
 }
@@ -26,7 +31,7 @@ impl Display for MenuOption {
     }
 }
 
-fn add_produce(mut list: Vec<Produce>) -> InquireResult<Vec<Produce>> {
+fn add_produce(mut list: Vec<Product>) -> InquireResult<Vec<Product>> {
     let name = Text::new("Enter produce name: ").prompt()?;
     let price = CustomType::<f64>::new("How much did it cost?")
         .with_formatter(&|i| format!("{:.2} PLN", i))
@@ -38,31 +43,74 @@ fn add_produce(mut list: Vec<Produce>) -> InquireResult<Vec<Produce>> {
             return Ok(Validation::Invalid("You must enter positive amount".into()));
         })
         .prompt()?;
-    list.push(Produce { name, price });
+    list.push(Product { name, price });
 
     Ok(list)
 }
-fn print_list(list: &Vec<Produce>) {
-    for p in list {
-        println!("{} {:.2} PLN", p.name, p.price)
+fn print_list(list: &Vec<Person>) {
+    for person in list {
+        println!("{}", person.name);
+        for product in person.produce.iter() {
+            println!(" - {} {:.2} PLN", product.name, product.price)
+        }
+        println!(
+            "Total: {:.2} PLN",
+            person
+                .produce
+                .iter()
+                .map(|e| e.price)
+                .reduce(|acc, e| acc + e)
+                .unwrap_or(0.0f64)
+        )
     }
-    println!(
-        "Total: {:.2} PLN",
-        list.iter()
-            .map(|e| e.price)
-            .reduce(|acc, e| acc + e)
-            .unwrap_or(0.0f64)
-    )
 }
 
 fn main() -> InquireResult<()> {
-    let mut produce_list: Vec<Produce> = vec![];
+    let mut person_list: Vec<Person> = vec![];
+
+    person_list.push(Person {
+        name: "Jacek".to_string(),
+        produce: vec![],
+    });
 
     loop {
         let ans: MenuOption = Select::new("Choice", MenuOption::VARIANTS.to_vec()).prompt()?;
         match ans {
-            MenuOption::AddProduce => produce_list = add_produce(produce_list)?,
-            MenuOption::PrintList => print_list(&produce_list),
+            MenuOption::AddProduce => {
+                if person_list.len() == 0 {
+                    println!("No person added to list, please add one to continue");
+                    continue;
+                }
+                let person_name =
+                    Select::new("", person_list.iter().map(|p| &p.name).collect()).prompt()?;
+
+                let _predicate = |p: &&Person| p.name.eq(&person_name.clone());
+                let person_option = person_list.iter_mut().find(|p| p.name.contains("Jacek"));
+
+                match person_option {
+                    Some(mut person) => {
+                        println!("Person found with name {}", person.name);
+                        let name = Text::new("Enter produce name: ").prompt()?;
+                        let price = CustomType::<f64>::new("How much did it cost?")
+                            .with_formatter(&|i| format!("{:.2} PLN", i))
+                            .with_error_message("Please type a valid number")
+                            .with_validator(|val: &f64| {
+                                if *val >= 0.0f64 {
+                                    return Ok(Validation::Valid);
+                                }
+                                return Ok(Validation::Invalid(
+                                    "You must enter positive amount".into(),
+                                ));
+                            })
+                            .prompt()?;
+                        person.produce.push(Product { name, price });
+                    }
+                    None => println!("No person found with that name"),
+                }
+
+                // person.produce = add_produce(person.produce)?;
+            }
+            MenuOption::PrintList => print_list(&person_list),
             MenuOption::Exit => return Ok(()),
         }
     }
