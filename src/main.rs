@@ -1,6 +1,5 @@
 use std::{
     fmt::{Display, Formatter},
-    rc::Rc,
     vec,
 };
 
@@ -31,7 +30,8 @@ impl Display for MenuOption {
     }
 }
 
-fn add_produce(mut list: Vec<Product>) -> InquireResult<Vec<Product>> {
+fn add_product(person: &mut Person) -> Result<(), inquire::InquireError> {
+    println!("Person found with name {}", person.name);
     let name = Text::new("Enter produce name: ").prompt()?;
     let price = CustomType::<f64>::new("How much did it cost?")
         .with_formatter(&|i| format!("{:.2} PLN", i))
@@ -43,10 +43,10 @@ fn add_produce(mut list: Vec<Product>) -> InquireResult<Vec<Product>> {
             return Ok(Validation::Invalid("You must enter positive amount".into()));
         })
         .prompt()?;
-    list.push(Product { name, price });
-
-    Ok(list)
+    person.produce.push(Product { name, price });
+    Ok(())
 }
+
 fn print_list(list: &Vec<Person>) {
     for person in list {
         println!("{}", person.name);
@@ -54,7 +54,7 @@ fn print_list(list: &Vec<Person>) {
             println!(" - {} {:.2} PLN", product.name, product.price)
         }
         println!(
-            "Total: {:.2} PLN",
+            "  Total: {:.2} PLN",
             person
                 .produce
                 .iter()
@@ -64,12 +64,37 @@ fn print_list(list: &Vec<Person>) {
         )
     }
 }
-
+// {
+// fn result_demo(value: String) -> Result<bool, String> {
+//     if value == "Cośtam".to_string() {
+//         return Ok(true);
+//     }
+//     return Err("Coś jebło cnie".to_string());
+// }
+// fn some_fn() -> Result<bool, String> {
+//     let is_cos_tam = result_demo("not cośtam".to_string())?;
+//     println!("jest Cośtam");
+//     return Ok(is_cos_tam);
+// }
+// fn wyzsza_funkcja() {
+//     let value: String;
+//     let result = some_fn();
+//     println!("{value}");
+//     match result {
+//         Ok(_) => todo!(),
+//         Err(_) => todo!(),
+//     }
+// }
+// }
 fn main() -> InquireResult<()> {
     let mut person_list: Vec<Person> = vec![];
 
     person_list.push(Person {
         name: "Jacek".to_string(),
+        produce: vec![],
+    });
+    person_list.push(Person {
+        name: "Magda".to_string(),
         produce: vec![],
     });
 
@@ -82,33 +107,26 @@ fn main() -> InquireResult<()> {
                     continue;
                 }
                 let person_name =
-                    Select::new("", person_list.iter().map(|p| &p.name).collect()).prompt()?;
+                    Select::new("", person_list.iter().map(|p| p.name.clone()).collect())
+                        .prompt()?;
 
                 let _predicate = |p: &&Person| p.name.eq(&person_name.clone());
-                let person_option = person_list.iter_mut().find(|p| p.name.contains("Jacek"));
+                // let person_option = person_list.iter_mut().find(|p| p.name.contains("Jacek"));
 
-                match person_option {
-                    Some(mut person) => {
-                        println!("Person found with name {}", person.name);
-                        let name = Text::new("Enter produce name: ").prompt()?;
-                        let price = CustomType::<f64>::new("How much did it cost?")
-                            .with_formatter(&|i| format!("{:.2} PLN", i))
-                            .with_error_message("Please type a valid number")
-                            .with_validator(|val: &f64| {
-                                if *val >= 0.0f64 {
-                                    return Ok(Validation::Valid);
-                                }
-                                return Ok(Validation::Invalid(
-                                    "You must enter positive amount".into(),
-                                ));
-                            })
-                            .prompt()?;
-                        person.produce.push(Product { name, price });
+                let mut person_option: Option<&mut Person>;
+                {
+                    person_option = None;
+                    for p in person_list.iter_mut() {
+                        if p.name.eq(&person_name.clone()) {
+                            person_option = Some(p);
+                            break;
+                        }
                     }
+                }
+                match person_option {
+                    Some(person) => add_product(person)?,
                     None => println!("No person found with that name"),
                 }
-
-                // person.produce = add_produce(person.produce)?;
             }
             MenuOption::PrintList => print_list(&person_list),
             MenuOption::Exit => return Ok(()),
