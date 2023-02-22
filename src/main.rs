@@ -1,14 +1,20 @@
+mod add_person;
+mod add_product;
+mod inquire_adapter;
+mod print_list;
+
 use std::{
+    collections::HashMap,
     fmt::{Display, Formatter},
     vec,
 };
 
-use inquire::{error::InquireResult, validator::Validation, CustomType, Select, Text};
+use add_person::add_person;
+use add_product::add_product_to_person;
+use inquire::{error::InquireResult, Select};
+use inquire_adapter::{get_new_person_name, get_person_name, get_product_data};
+use print_list::print_list;
 
-struct Person {
-    name: String,
-    produce: Vec<Product>,
-}
 struct Product {
     name: String,
     price: f64,
@@ -34,66 +40,12 @@ impl Display for MenuOption {
         write!(f, "{:?}", self)
     }
 }
-fn add_product_to_person(
-    person_list: &mut Vec<Person>,
-    person_name: String,
-    product: Product,
-) -> Result<(), inquire::InquireError> {
-    let person_option = person_list
-        .iter_mut()
-        .find(|p| p.name.eq(&person_name.clone()));
-
-    Ok(match person_option {
-        Some(person) => person.produce.push(product),
-        None => println!("No person found with that name"),
-    })
-}
-
-fn get_product_data() -> Result<Product, inquire::InquireError> {
-    let name = Text::new("Enter produce name: ").prompt()?;
-    let price = CustomType::<f64>::new("How much did it cost?")
-        .with_formatter(&|i| format!("{:.2} PLN", i))
-        .with_error_message("Please type a valid number")
-        .with_validator(|val: &f64| {
-            if *val >= 0.0f64 {
-                return Ok(Validation::Valid);
-            }
-            return Ok(Validation::Invalid("You must enter positive amount".into()));
-        })
-        .prompt()?;
-    Ok(Product { name, price })
-}
-
-fn print_list(list: &Vec<Person>) {
-    let mut total = 0.0f64;
-    for person in list {
-        println!("{}", person.name);
-        for product in person.produce.iter() {
-            println!(" - {} {:.2} PLN", product.name, product.price)
-        }
-        let person_total = person
-            .produce
-            .iter()
-            .map(|e| e.price)
-            .reduce(|acc, e| acc + e)
-            .unwrap_or(0.0f64);
-        println!("  Total: {:.2} PLN", person_total);
-        total += person_total;
-    }
-    println!("Total: {:.2} PLN", total);
-}
 
 fn main() -> InquireResult<()> {
-    let mut person_list: Vec<Person> = vec![];
+    let mut person_list: HashMap<String, Vec<Product>> = HashMap::new();
 
-    person_list.push(Person {
-        name: "Jacek".to_string(),
-        produce: vec![],
-    });
-    person_list.push(Person {
-        name: "Magda".to_string(),
-        produce: vec![],
-    });
+    person_list.insert("Jacek".to_string(), vec![]);
+    person_list.insert("Magda".to_string(), vec![]);
 
     loop {
         let ans: MenuOption = Select::new("Choice", MenuOption::VARIANTS.to_vec()).prompt()?;
@@ -103,27 +55,14 @@ fn main() -> InquireResult<()> {
                     println!("No person added to list, please add one to continue");
                     continue;
                 }
-                let person_name =
-                    Select::new("", person_list.iter().map(|p| p.name.clone()).collect())
-                        .prompt()?;
+                let person_name = get_person_name(&person_list)?;
 
                 let product = get_product_data()?;
-                add_product_to_person(&mut person_list, person_name, product)?;
+                add_product_to_person(&mut person_list, person_name, product);
             }
             MenuOption::AddPerson => {
-                let new_person_name = Text::new("Enter new person name").prompt()?;
-
-                let exists = person_list
-                    .iter()
-                    .find(|p| p.name.eq(&new_person_name.clone()));
-
-                match exists {
-                    Some(person) => println!("Person with name: {} already exists", person.name),
-                    None => person_list.push(Person {
-                        name: new_person_name,
-                        produce: vec![],
-                    }),
-                }
+                let new_person_name = get_new_person_name()?;
+                add_person(&mut person_list, new_person_name);
             }
             MenuOption::PrintList => print_list(&person_list),
             MenuOption::Exit => return Ok(()),
