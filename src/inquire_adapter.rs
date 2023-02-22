@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use inquire::{validator::Validation, CustomType, InquireError, Select, Text};
+use inquire::{validator::Validation, CustomType, CustomUserError, InquireError, Select, Text};
 
 use crate::Product;
 
@@ -22,6 +22,12 @@ pub(crate) fn get_product_data() -> Result<Product, InquireError> {
 pub(crate) fn get_person_name(
     person_list: &HashMap<String, Vec<Product>>,
 ) -> Result<String, InquireError> {
+    if person_list.len() == 0 {
+        println!("No person added to list, please add one to continue");
+        return Err(InquireError::Custom(CustomUserError::from(
+            "Person does not exist",
+        )));
+    }
     let person_name = Select::new("", person_list.keys().map(|p| p.clone()).collect()).prompt()?;
     Ok(person_name)
 }
